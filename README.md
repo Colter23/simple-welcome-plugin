@@ -1,5 +1,5 @@
-# mirai-console-plugin-template
+# SimpleWelcomePlugin
 
-[Mirai Console](https://github.com/mamoe/mirai-console) 插件模板, 使用 Kotlin + Gradle.
+> [Mirai 插件](https://github.com/mamoe/mirai)
 
-[如何使用](https://github.com/project-mirai/how-to-use-plugin-template)
+简单的进群欢迎等小功能插件
