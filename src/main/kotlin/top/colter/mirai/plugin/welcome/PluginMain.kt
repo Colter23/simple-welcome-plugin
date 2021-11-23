@@ -1,6 +1,10 @@
 package top.colter.mirai.plugin.welcome
 
 import kotlinx.coroutines.delay
+import net.mamoe.mirai.console.permission.PermissionId
+import net.mamoe.mirai.console.permission.PermissionService
+import net.mamoe.mirai.console.permission.PermissionService.Companion.getPermittedPermissions
+import net.mamoe.mirai.console.permission.PermitteeId.Companion.permitteeId
 import net.mamoe.mirai.console.plugin.jvm.JvmPluginDescription
 import net.mamoe.mirai.console.plugin.jvm.KotlinPlugin
 import net.mamoe.mirai.event.GlobalEventChannel
@@ -15,12 +19,14 @@ import net.mamoe.mirai.message.data.PlainText
 import net.mamoe.mirai.message.data.buildMessageChain
 import net.mamoe.mirai.message.data.content
 import net.mamoe.mirai.utils.info
+import top.colter.mirai.plugin.welcome.WelcomePluginConfig.friendWelcomeMessage
+import top.colter.mirai.plugin.welcome.WelcomePluginConfig.groupWelcomeMessage
 import top.colter.mirai.plugin.welcome.WelcomePluginConfig.newFriendRequest
 import java.time.Instant
 
 object PluginMain : KotlinPlugin(
     JvmPluginDescription(
-        id = "top.colter.mirai-example",
+        id = "top.colter.simple-welcome",
         name = "简单欢迎插件",
         version = "0.1.0"
     ) {
@@ -29,6 +35,9 @@ object PluginMain : KotlinPlugin(
 ) {
     override fun onEnable() {
         logger.info { "Plugin loaded" }
+
+        val gwp = PermissionId("top.colter.simple-welcome","command.group-welcome")
+        PermissionService.INSTANCE.register(gwp,"群欢迎语")
         val eventChannel = GlobalEventChannel.parentScope(this)
 
         val requestEventMap = mutableMapOf<String, NewFriendRequestEvent>()
@@ -91,15 +100,20 @@ object PluginMain : KotlinPlugin(
                     }
                 }
             }
-            if (WelcomePluginConfig.friendWelcomeMessage.isNotEmpty()) {
+            if (friendWelcomeMessage.isNotEmpty()) {
                 delay(2000)
-                bot.getFriend(fromId)?.sendMessage(WelcomePluginConfig.friendWelcomeMessage)
+                bot.getFriend(fromId)?.sendMessage(friendWelcomeMessage)
             }
         }
 
         eventChannel.subscribeAlways<MemberJoinEvent> {
-            if (WelcomePluginConfig.groupWelcomeMessage.isNotEmpty()) {
-                group.sendMessage(At(user) + " " + WelcomePluginConfig.groupWelcomeMessage)
+
+            val hasPerm = group.permitteeId.getPermittedPermissions().any {
+                it.id == gwp
+            }
+
+            if (hasPerm && groupWelcomeMessage.isNotEmpty()) {
+                group.sendMessage(At(user) + " " + groupWelcomeMessage)
             }
         }
         eventChannel.subscribeAlways<BotInvitedJoinGroupRequestEvent> {

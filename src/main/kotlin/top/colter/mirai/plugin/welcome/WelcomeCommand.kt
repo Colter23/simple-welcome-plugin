@@ -18,7 +18,7 @@ class WelcomeCommand : CompositeCommand(
 ) {
 
     @SubCommand("req", "请求")
-    suspend fun CommandSenderOnMessage<FriendMessageEvent>.set(qid: Long) {
+    suspend fun CommandSenderOnMessage<FriendMessageEvent>.req(qid: Long) {
         FriendMessageEvent(
             fromEvent.sender,
             buildMessageChain { +PlainText("%@#=newFriendRequest=#@%$qid") },
