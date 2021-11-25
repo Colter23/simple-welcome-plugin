@@ -10,12 +10,8 @@ import top.colter.mirai.plugin.welcome.PluginMain
 suspend fun main() {
     MiraiConsoleTerminalLoader.startAsDaemon()
 
-    //如果是Kotlin
     PluginMain.load()
     PluginMain.enable()
-    //如果是Java
-//    JavaPluginMain.INSTANCE.load()
-//    JavaPluginMain.INSTANCE.enable()
 
     val bot = MiraiConsole.addBot(123456, "") {
         fileBasedDeviceInfo()
