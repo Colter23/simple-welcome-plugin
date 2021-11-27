@@ -8,39 +8,37 @@ import net.mamoe.mirai.console.permission.PermissionService.Companion.getPermitt
 import net.mamoe.mirai.console.permission.PermitteeId.Companion.permitteeId
 import net.mamoe.mirai.console.plugin.jvm.JvmPluginDescription
 import net.mamoe.mirai.console.plugin.jvm.KotlinPlugin
-import net.mamoe.mirai.event.GlobalEventChannel
-import net.mamoe.mirai.event.broadcast
+import net.mamoe.mirai.event.*
 import net.mamoe.mirai.event.events.*
-import net.mamoe.mirai.event.selectMessages
 import net.mamoe.mirai.message.data.*
+import net.mamoe.mirai.utils.MiraiExperimentalApi
 import net.mamoe.mirai.utils.info
 import top.colter.mirai.plugin.welcome.WelcomePluginConfig.botInvitedJoinGroupRequest
 import top.colter.mirai.plugin.welcome.WelcomePluginConfig.friendWelcomeMessage
 import top.colter.mirai.plugin.welcome.WelcomePluginConfig.groupWelcomeMessage
 import top.colter.mirai.plugin.welcome.WelcomePluginConfig.newFriendRequest
-import java.time.Instant
 
 object PluginMain : KotlinPlugin(
     JvmPluginDescription(
         id = "top.colter.simple-welcome",
-        name = "简单欢迎插件",
-        version = "0.1.0"
+        name = "群欢迎, 管理Bot好友/群请求",
+        version = "1.0.0"
     ) {
         author("Colter")
     }
 ) {
+    @OptIn(MiraiExperimentalApi::class)
     override fun onEnable() {
         logger.info { "Plugin loaded" }
 
         WelcomeCommand.register()
-        GroupCommand.register()
+//        GroupCommand.register()
 
         val gwp = PermissionId("group","welcome.message")
         PermissionService.INSTANCE.register(gwp,"群欢迎语")
 
         val eventChannel = GlobalEventChannel.parentScope(this)
-        val friendRequestMap = mutableMapOf<String, NewFriendRequestEvent>()
-        val botInvitedJoinGroupMap = mutableMapOf<String, BotInvitedJoinGroupRequestEvent>()
+        val requestMap = mutableMapOf<Long, BotEvent>()
 
         eventChannel.subscribeAlways<GroupMessageEvent> {
             val hasPerm = group.permitteeId.getPermittedPermissions().any { it.id == gwp }
@@ -48,69 +46,25 @@ object PluginMain : KotlinPlugin(
                 group.sendMessage(QuoteReply(source) + Dice((1..6).random()))
             }
         }
-        eventChannel.subscribeAlways<FriendMessageEvent> {
-            if (message.content.startsWith("%@#=NewFriendRequest=#@%")) {
-                val qid = message.content.substring(24)
-                val event = friendRequestMap[qid]!!
-                sender.sendMessage("是否同意 $qid 的好友请求\n请回复 同意 或 拒绝 或 忽略")
-                selectMessages {
-                    "同意" {
-                        event.accept()
-                        friendRequestMap.remove(qid)
-                        "已同意"
-                    }
-                    "拒绝" {
-                        event.reject()
-                        friendRequestMap.remove(qid)
-                        "已拒绝"
-                    }
-                    "忽略" {
-                        friendRequestMap.remove(qid)
-                        "已忽略"
-                    }
-                    default { "额, 如需要继续处理请发送 /wlc freq $qid" }
-                    timeout(600_000) {
-                        sender.sendMessage("超时, 如需要继续处理请发送 /wlc freq $qid")
-                    }
-                }
-            }else if(message.content.startsWith("%@#=BotInvitedJoinGroupRequest=#@%")){
-                val gid = message.content.substring(34)
-                val event = botInvitedJoinGroupMap[gid]!!
-                sender.sendMessage("是否同意bot加入群 $gid\n请回复 同意 或 拒绝 或 忽略")
-                selectMessages {
-                    "同意" {
-                        event.accept()
-                        friendRequestMap.remove(gid)
-                        "已同意"
-                    }
-                    "拒绝" {
-                        event.ignore()
-                        friendRequestMap.remove(gid)
-                        "已拒绝"
-                    }
-                    "忽略" {
-                        friendRequestMap.remove(gid)
-                        "已忽略"
-                    }
-                    default { "额, 如需要继续处理请发送 /wlc greq $gid" }
-                    timeout(600_000) {
-                        sender.sendMessage("超时, 如需要继续处理请发送 /wlc req $gid")
-                    }
-                }
+
+        eventChannel.subscribeAlways<MemberJoinEvent> {
+            val hasPerm = group.permitteeId.getPermittedPermissions().any { it.id == gwp }
+            if (hasPerm && groupWelcomeMessage.isNotEmpty()) {
+                group.sendMessage(At(user) + " " + groupWelcomeMessage)
             }
         }
+
         eventChannel.subscribeAlways<NewFriendRequestEvent> {
             val msg = buildString {
-                append("好友请求: $fromId $fromNick")
+                append("Bot好友请求: $fromId@$fromNick")
                 if (fromGroupId != 0L) {
-                    append("\n来自: 群 ${fromGroup?.name}")
+                    append("\n来自群: ${fromGroup?.name}")
                 }
                 if (message.isNotEmpty()) {
                     append("\n备注: $message")
                 }
             }
             val admin = bot.getFriend(WelcomePluginConfig.admin)
-
             when (newFriendRequest) {
                 1 -> {
                     reject()
@@ -121,14 +75,8 @@ object PluginMain : KotlinPlugin(
                     admin?.sendMessage("$msg\n处理结果: 已同意")
                 }
                 3 -> {
-                    friendRequestMap[fromId.toString()] = this
-                    admin?.let { a ->
-                        FriendMessageEvent(
-                            a,
-                            buildMessageChain { +PlainText("%@#=NewFriendRequest=#@%$fromId") },
-                            Instant.now().epochSecond.toInt()
-                        ).broadcast()
-                    }
+                    requestMap[fromId] = this
+                    admin?.sendMessage("$msg\n请回复 同意 或 拒绝 或 忽略")
                 }
             }
             if (friendWelcomeMessage.isNotEmpty()) {
@@ -138,7 +86,7 @@ object PluginMain : KotlinPlugin(
         }
 
         eventChannel.subscribeAlways<BotInvitedJoinGroupRequestEvent> {
-            val msg = "群邀请请求: $groupId $groupName\n邀请人: $invitorId $invitorNick"
+            val msg = "Bot群邀请请求: $groupId@$groupName\n邀请人: $invitorId@$invitorNick"
             val admin = bot.getFriend(WelcomePluginConfig.admin)
             when (botInvitedJoinGroupRequest) {
                 1 -> {
@@ -150,22 +98,81 @@ object PluginMain : KotlinPlugin(
                     admin?.sendMessage("$msg\n处理结果: 已同意")
                 }
                 3 -> {
-                    botInvitedJoinGroupMap[groupId.toString()] = this
-                    admin?.let { a ->
-                        FriendMessageEvent(
-                            a,
-                            buildMessageChain { +PlainText("%@#=BotInvitedJoinGroupRequest=#@%$groupId") },
-                            Instant.now().epochSecond.toInt()
-                        ).broadcast()
-                    }
+                    requestMap[groupId * -1] = this
+                    admin?.sendMessage("$msg\n请回复 同意 或 拒绝 或 忽略")
                 }
             }
         }
 
-        eventChannel.subscribeAlways<MemberJoinEvent> {
-            val hasPerm = group.permitteeId.getPermittedPermissions().any { it.id == gwp }
-            if (hasPerm && groupWelcomeMessage.isNotEmpty()) {
-                group.sendMessage(At(user) + " " + groupWelcomeMessage)
+        eventChannel.subscribeAlways<FriendMessageEvent>{
+            if (sender.id == WelcomePluginConfig.admin){
+                if (listOf("同意","拒绝","忽略","全部同意","全部拒绝","全部忽略","逐个处理").contains(message.content) && requestMap.isNotEmpty()){
+                    if (requestMap.size == 1 || listOf("全部同意","全部拒绝","全部忽略").contains(message.content)){
+                        when(message.content){
+                            "同意","全部同意" -> {
+                                requestMap.forEach { (k, v) ->
+                                    if (k < 0) (v as BotInvitedJoinGroupRequestEvent).accept() else (v as NewFriendRequestEvent).accept()
+                                }
+                                requestMap.clear()
+                            }
+                            "拒绝","全部拒绝" -> {
+                                requestMap.forEach { (k, v) ->
+                                    if (k < 0) (v as BotInvitedJoinGroupRequestEvent).ignore() else (v as NewFriendRequestEvent).reject()
+                                }
+                                requestMap.clear()
+                            }
+                            "忽略","全部忽略" -> {
+                                requestMap.clear()
+                            }
+                        }
+                        sender.sendMessage("处理完成")
+                    }else if (message.content == "逐个处理"){
+                        sender.sendMessage("请回复 同意 or 拒绝 or 忽略")
+                        val reqMap = requestMap.toMap()
+                        reqMap.forEach { (k, v) ->
+                            if (k<0){
+                                val g = v as BotInvitedJoinGroupRequestEvent
+                                sender.sendMessage("群请求: ${g.groupId}@${g.groupName}")
+                            }else{
+                                val f = v as NewFriendRequestEvent
+                                sender.sendMessage("好友请求: ${f.fromId}@${f.fromNick}")
+                            }
+                            selectMessagesUnit {
+                                "同意" {
+                                    if (k < 0) (v as BotInvitedJoinGroupRequestEvent).accept() else (v as NewFriendRequestEvent).accept()
+                                    requestMap.remove(k)
+                                }
+                                "拒绝" {
+                                    if (k < 0) (v as BotInvitedJoinGroupRequestEvent).ignore() else (v as NewFriendRequestEvent).reject()
+                                    requestMap.remove(k)
+                                }
+                                "忽略" {
+                                    requestMap.remove(k)
+                                }
+                                default { sender.sendMessage("匹配失败") }
+                                timeout(600_000) {
+                                    sender.sendMessage("超时")
+                                    return@timeout
+                                }
+                            }
+                        }
+                        sender.sendMessage("处理完成")
+                    } else{
+                        sender.sendMessage(buildString {
+                            appendLine("多个请求待处理")
+                            val friendReq = requestMap.filter { it.key > 0 }.mapValues { it.value as NewFriendRequestEvent }
+                            val groupReq = requestMap.filter { it.key < 0 }.mapValues { it.value as BotInvitedJoinGroupRequestEvent }
+                            if (friendReq.isNotEmpty()) appendLine("好友请求:")
+                            friendReq.forEach { (_, f) -> appendLine("${f.fromId}@${f.fromNick}") }
+                            if (groupReq.isNotEmpty()) appendLine("群请求:")
+                            groupReq.forEach { (_, f) -> appendLine("${f.groupId}@${f.groupName}") }
+                            appendLine("共 ${requestMap.size} 个请求")
+                            appendLine("请再次发送 全部同意 or 全部拒绝 or 全部忽略 or 逐个处理")
+                        })
+                    }
+                }else{
+                    sender.sendMessage("最近没有请求哦")
+                }
             }
         }
     }

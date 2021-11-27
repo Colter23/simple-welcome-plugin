@@ -1,4 +1,4 @@
-package org.example.mirai.plugin
+package top.colter.mirai.plugin
 
 import net.mamoe.mirai.alsoLogin
 import net.mamoe.mirai.console.MiraiConsole

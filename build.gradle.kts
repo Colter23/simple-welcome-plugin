@@ -1,5 +1,5 @@
 plugins {
-    val kotlinVersion = "1.5.10"
+    val kotlinVersion = "1.5.31"
     kotlin("jvm") version kotlinVersion
     kotlin("plugin.serialization") version kotlinVersion
 
@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "top.colter"
-version = "0.1.0"
+version = "1.0.0"
 
 repositories {
     mavenLocal()

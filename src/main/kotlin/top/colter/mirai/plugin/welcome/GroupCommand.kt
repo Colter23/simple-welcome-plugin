@@ -4,6 +4,9 @@ import net.mamoe.mirai.console.command.CommandSenderOnMessage
 import net.mamoe.mirai.console.command.CompositeCommand
 import net.mamoe.mirai.event.events.FriendMessageEvent
 
+/**
+ * 暂时没用
+ */
 object GroupCommand : CompositeCommand(
     owner = PluginMain,
     "group"
