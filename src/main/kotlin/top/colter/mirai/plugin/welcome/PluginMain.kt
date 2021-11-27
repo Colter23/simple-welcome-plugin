@@ -21,7 +21,7 @@ import top.colter.mirai.plugin.welcome.WelcomePluginConfig.newFriendRequest
 object PluginMain : KotlinPlugin(
     JvmPluginDescription(
         id = "top.colter.simple-welcome",
-        name = "群欢迎, 管理Bot好友/群请求",
+        name = "SimpleWelcome",
         version = "1.0.0"
     ) {
         author("Colter")
