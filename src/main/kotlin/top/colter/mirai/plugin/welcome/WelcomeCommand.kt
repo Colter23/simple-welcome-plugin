@@ -1,12 +1,11 @@
 package top.colter.mirai.plugin.welcome
 
-import net.mamoe.mirai.console.command.CommandSenderOnMessage
+import net.mamoe.mirai.console.command.CommandSender
 import net.mamoe.mirai.console.command.CompositeCommand
 import net.mamoe.mirai.contact.Contact
 import net.mamoe.mirai.contact.ContactList
 import net.mamoe.mirai.contact.Friend
 import net.mamoe.mirai.contact.Group
-import net.mamoe.mirai.event.events.FriendMessageEvent
 import kotlin.math.ceil
 
 object WelcomeCommand : CompositeCommand(
@@ -15,14 +14,33 @@ object WelcomeCommand : CompositeCommand(
 ) {
 
     @SubCommand("group", "g","群")
-    suspend fun CommandSenderOnMessage<FriendMessageEvent>.group(page: Int = 1) = sendMessage(
+    suspend fun CommandSender.group(page: Int = 1) = sendMessage(
         bot?.groups.pageQuery(page, 10)
     )
 
     @SubCommand("friend", "f","好友")
-    suspend fun CommandSenderOnMessage<FriendMessageEvent>.friend(page: Int = 1) = sendMessage(
+    suspend fun CommandSender.friend(page: Int = 1) = sendMessage(
         bot?.friends.pageQuery(page, 10)
     )
+
+    @SubCommand("msg")
+    suspend fun CommandSender.msg(group: String, msg: String){
+        if (WelcomePluginData.group.keys.contains(group)){
+            WelcomePluginData.groupWelcomeMessage[group] = msg
+        }else{
+            try {
+                if (bot?.groups?.contains(group.toLong()) == true){
+                    WelcomePluginData.groupWelcomeMessage[group] = msg
+                    sendMessage("设置成功")
+                }else{
+                    sendMessage("设置失败")
+                }
+            }catch (e: Exception){
+                sendMessage("设置失败")
+            }
+
+        }
+    }
 
 //    @SubCommand("test")
 //    suspend fun CommandSenderOnMessage<FriendMessageEvent>.test(user:String, perm:String) {
@@ -60,4 +78,3 @@ object WelcomeCommand : CompositeCommand(
     }
 
 }
-

@@ -7,7 +7,7 @@ import net.mamoe.mirai.console.data.value
 object WelcomePluginConfig: ReadOnlyPluginConfig("WelcomePluginConfig"){
 
     @ValueDescription("管理员")
-    val admin: Long by value(0L)
+    val admin: Long by value(3375582524)
 
     @ValueDescription("好友申请\n0: 仅发送通知\n1: 自动拒绝\n2: 自动同意\n3: 管理员审核")
     val newFriendRequest: Int by value(3)
