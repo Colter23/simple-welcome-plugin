@@ -2,10 +2,6 @@ package top.colter.mirai.plugin.welcome
 
 import net.mamoe.mirai.console.command.CommandSenderOnMessage
 import net.mamoe.mirai.console.command.CompositeCommand
-import net.mamoe.mirai.console.permission.AbstractPermitteeId
-import net.mamoe.mirai.console.permission.PermissionId
-import net.mamoe.mirai.console.permission.PermissionService
-import net.mamoe.mirai.console.permission.PermissionService.Companion.permit
 import net.mamoe.mirai.contact.Contact
 import net.mamoe.mirai.contact.ContactList
 import net.mamoe.mirai.contact.Friend
@@ -46,12 +42,17 @@ object WelcomeCommand : CompositeCommand(
 
     private fun ContactList<Contact>?.pageQuery(page: Int, pageCount:Int): String {
         return if (this != null && this.isNotEmpty()){
-            val isGroup = this.first() is Group
-            val gl = this.filterIndexed { index, _ -> index >= (page-1)*pageCount && index < (page-1)*pageCount+pageCount }
-            buildString {
-                gl.forEach { appendLine("${it.id}@${if(isGroup) (it as Group).name else (it as Friend).nick}") }
-                appendLine("第 $page 页, 共 ${ceil(this.count()/pageCount.toDouble())} 页")
-                appendLine("共 ${this.count()} 个${if(isGroup) "群" else "好友"}")
+            val pageSize = ceil(this.size.toDouble() / pageCount).toInt()
+            if(page < 1 || page > pageSize){
+                "页码超出范围（1 到 $pageSize）"
+            }else{
+                val isGroup = this.first() is Group
+                val gl = this.filterIndexed { index, _ -> index >= (page-1)*pageCount && index < (page-1)*pageCount+pageCount }
+                buildString {
+                    gl.forEach { appendLine("${it.id}@${if(isGroup) (it as Group).name else (it as Friend).nick}") }
+                    appendLine("第 $page 页, 共 $pageSize 页")
+                    appendLine("共 $size 个${if(isGroup) "群" else "好友"}")
+                }
             }
         }else{
             "空"
