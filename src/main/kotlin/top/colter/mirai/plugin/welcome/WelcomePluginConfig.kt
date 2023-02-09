@@ -18,8 +18,8 @@ object WelcomePluginConfig: ReadOnlyPluginConfig("WelcomePluginConfig"){
     @ValueDescription("好友请求欢迎语\n如不需要请填写 '' 两个单引号")
     val friendWelcomeMessage: String by value("( •̀ ω •́ )✧")
 
-    @ValueDescription("新成员加群欢迎语(需要授权)\n如不需要请填写 '' 两个单引号")
-    val groupWelcomeMessage: String by value("欢迎( •̀ ω •́ )✧")
+    @ValueDescription("新成员加群欢迎语(需要授权)\n如不需要请填写 '' 两个单引号\n${'$'}{群名}替换被加群的群名，${'$'}{用户名}替换新加群员的昵称，${'$'}{头像}替换新加群员的头像\n注：暂时不支持取消关键词替换")
+    val groupWelcomeMessage: String by value("${'$'}{用户名}，欢迎入群( •̀ ω •́ )✧")
 
 
 }
