@@ -66,19 +66,23 @@ object PluginMain : KotlinPlugin(
             val userName = it.user.nick
             val userAvatarUrl = it.user.avatarUrl//获取基础信息，如群名，用户名，用户头像url
 
+            var userAvatarImage :Image? = null  //当需要获取头像时，才获取头像并赋值
+
             var message = groupWelcomeMessage
+
             message = message.replace("${'$'}{群名}",groupName)
                 .replace("${'$'}{用户名}",userName)//替换非图像类的用户信息
 
-            val userAvatarUrlInputStream : InputStream =
-                withContext(Dispatchers.IO) {
-                    URL(userAvatarUrl).openStream()
-                }
-            logger.info { "userAvatarUrl:${userAvatarUrl}" }
-            val userAvatarImage :Image
-            userAvatarUrlInputStream.use {
-                userAvatarImage = userAvatarUrlInputStream.uploadAsImage(group)
-            }//获取用户头像，生成Image对象
+            if(message.contains("${'$'}{头像}")){ //如果需要获取头像，则开始获取头像
+                val userAvatarUrlInputStream : InputStream =
+                    withContext(Dispatchers.IO) {
+                        URL(userAvatarUrl).openStream()
+                    }
+
+                userAvatarUrlInputStream.use {
+                    userAvatarImage = userAvatarUrlInputStream.uploadAsImage(group)
+                }//获取用户头像，生成Image对象
+            }
 
             val hasPerm = group.permitteeId.getPermittedPermissions().any { it.id == gwp }
             if (hasPerm && message.isNotEmpty()) {
@@ -89,11 +93,15 @@ object PluginMain : KotlinPlugin(
                     messageSend += messageSendListData[0]
 
                 }else if (messageSendListData.size >= 2){
-                    val iterator = messageSendListData.iterator()
-                    messageSend += iterator.next()
-                    while (iterator.hasNext()){
-                        messageSend += userAvatarImage
+
+                    if (userAvatarImage != null){//用于判断头像非空，如果为空则不进行替换
+
+                        val iterator = messageSendListData.iterator()
                         messageSend += iterator.next()
+                        while (iterator.hasNext()){
+                            messageSend += userAvatarImage!! //插入头像
+                            messageSend += iterator.next()
+                        }
                     }
                 }
                 group.sendMessage(messageSend)
