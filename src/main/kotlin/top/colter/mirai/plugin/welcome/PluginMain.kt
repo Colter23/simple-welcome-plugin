@@ -1,6 +1,8 @@
 package top.colter.mirai.plugin.welcome
 
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import net.mamoe.mirai.console.command.CommandManager.INSTANCE.register
 import net.mamoe.mirai.console.command.CommandManager.INSTANCE.unregister
 import net.mamoe.mirai.console.permission.PermissionId
@@ -13,12 +15,15 @@ import net.mamoe.mirai.contact.Friend
 import net.mamoe.mirai.event.*
 import net.mamoe.mirai.event.events.*
 import net.mamoe.mirai.message.data.*
+import net.mamoe.mirai.utils.ExternalResource.Companion.uploadAsImage
 import net.mamoe.mirai.utils.MiraiExperimentalApi
 import net.mamoe.mirai.utils.info
 import top.colter.mirai.plugin.welcome.WelcomePluginConfig.botInvitedJoinGroupRequest
 import top.colter.mirai.plugin.welcome.WelcomePluginConfig.friendWelcomeMessage
 import top.colter.mirai.plugin.welcome.WelcomePluginConfig.groupWelcomeMessage
 import top.colter.mirai.plugin.welcome.WelcomePluginConfig.newFriendRequest
+import java.io.InputStream
+import java.net.URL
 
 object PluginMain : KotlinPlugin(
     JvmPluginDescription(
@@ -56,9 +61,50 @@ object PluginMain : KotlinPlugin(
         }
 
         eventChannel.subscribeAlways<MemberJoinEvent> {
+
+            val groupName = it.group.name
+            val userName = it.user.nick
+            val userAvatarUrl = it.user.avatarUrl//获取基础信息，如群名，用户名，用户头像url
+
+            var userAvatarImage :Image? = null  //当需要获取头像时，才获取头像并赋值
+
+            var message = groupWelcomeMessage
+
+            message = message.replace("${'$'}{群名}",groupName)
+                .replace("${'$'}{用户名}",userName)//替换非图像类的用户信息
+
+            if(message.contains("${'$'}{头像}")){ //如果需要获取头像，则开始获取头像
+                val userAvatarUrlInputStream : InputStream =
+                    withContext(Dispatchers.IO) {
+                        URL(userAvatarUrl).openStream()
+                    }
+
+                userAvatarUrlInputStream.use {
+                    userAvatarImage = userAvatarUrlInputStream.uploadAsImage(group)
+                }//获取用户头像，生成Image对象
+            }
+
             val hasPerm = group.permitteeId.getPermittedPermissions().any { it.id == gwp }
-            if (hasPerm && groupWelcomeMessage.isNotEmpty()) {
-                group.sendMessage(At(user) + " " + groupWelcomeMessage)
+            if (hasPerm && message.isNotEmpty()) {
+                val messageSendListData =  message.split("${'$'}{头像}")
+                var messageSend : Message = At(user)
+
+                if (messageSendListData.size == 1){//判断是否需要替换头像，如list长度为一，则不需要替换头像
+                    messageSend += messageSendListData[0]
+
+                }else if (messageSendListData.size >= 2){
+
+                    if (userAvatarImage != null){//用于判断头像非空，如果为空则不进行替换
+
+                        val iterator = messageSendListData.iterator()
+                        messageSend += iterator.next()
+                        while (iterator.hasNext()){
+                            messageSend += userAvatarImage!! //插入头像
+                            messageSend += iterator.next()
+                        }
+                    }
+                }
+                group.sendMessage(messageSend)
             }
         }
 
